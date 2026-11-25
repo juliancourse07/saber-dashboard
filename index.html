@@ -55,9 +55,9 @@ tbody tr{cursor:pointer}tbody tr:hover{background:#eef3ff}
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="grid">
-    <div class="card"><h3>Puntaje global promedio por periodo</h3><canvas id="cTrend"></canvas></div>
+    <div class="card"><h3>Promedio general (5 módulos) por periodo</h3><canvas id="cTrend"></canvas></div>
     <div class="card"><h3>Promedio por módulo</h3><canvas id="cMods"></canvas></div>
-    <div class="card"><h3>Promedio global por departamento (top 15 por evaluados)</h3><canvas id="cDept"></canvas></div>
+    <div class="card"><h3>Promedio general por departamento (top 15 por evaluados)</h3><canvas id="cDept"></canvas></div>
     <div class="card"><h3>Evaluados por periodo</h3><canvas id="cCount"></canvas></div>
     <div class="card"><h3>Ranking de instituciones <small>(clic = filtrar)</small></h3><div class="tbl" id="tInst"></div></div>
     <div class="card"><h3>Ranking de programas <small>(clic = filtrar)</small></h3><div class="tbl" id="tProg"></div></div>
@@ -88,9 +88,8 @@ const DIMS = [
   {key: 'genero', label: 'Género', cands: ['estu_genero']},
   {key: 'estrato', label: 'Estrato', cands: ['fami_estratovivienda']},
 ];
-const GLOBAL_CANDS = ['punt_global', 'mod_punt_global'];
 
-let S = {ds: 'pro', cols: {}, dims: [], global: null, mods: [], updatedAt: null, filters: {}, sort: {}};
+let S = {ds: 'pro', cols: {}, dims: [], mods: [], updatedAt: null, filters: {}, sort: {}};
 const charts = {};
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/'/g, "''");
@@ -125,8 +124,7 @@ async function loadSchema() {
   m.columns.forEach(c => S.cols[c.fieldName] = c.dataTypeName);
   S.updatedAt = m.rowsUpdatedAt ? m.rowsUpdatedAt * 1000 : null;
   S.dims = DIMS.map(d => ({...d, col: d.cands.find(c => c in S.cols)})).filter(d => d.col);
-  S.global = GLOBAL_CANDS.find(c => c in S.cols);
-  S.mods = Object.keys(S.cols).filter(c => /^mod_.*_punt$/.test(c) && c !== S.global);
+  S.mods = Object.keys(S.cols).filter(c => /^mod_.*_punt$/.test(c));
   S.filters = {};
   S.sort = {};
   renderFilters();
@@ -158,7 +156,13 @@ async function loadOptions() {
 }
 
 function dimCol(key) { return (S.dims.find(d => d.key === key) || {}).col; }
-const avgs = () => [S.global, ...S.mods].filter(Boolean).map(c => `avg(${num(c)}) as a_${c}`).join(',');
+const avgs = () => S.mods.map(c => `avg(${num(c)}) as a_${c}`).join(',');
+// El dataset no trae puntaje global: se aproxima con el promedio de los módulos
+const gOf = r => {
+  const v = S.mods.map(m => parseFloat(r['a_' + m])).filter(x => !isNaN(x));
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+};
+const withG = rows => rows.map(r => ({...r, g: gOf(r)}));
 
 function draw(id, cfg) {
   if (charts[id]) charts[id].destroy();
@@ -171,27 +175,25 @@ async function refresh() {
   $('#status').textContent = 'Consultando…';
   $('#err').style.display = 'none';
   try {
-    const g = S.global;
-    const [tot, byPer, byDept, byInst, byProg] = await Promise.all([
-      soql(id, q({$select: `count(*) as n,${avgs()},min(${num(g)}) as mn,max(${num(g)}) as mx`})),
-      dimCol('periodo') ? soql(id, q({$select: `periodo as k,count(*) as n,avg(${num(g)}) as g`, $group: 'k', $order: 'k', $limit: 200})) : [],
-      dimCol('depto') ? soql(id, q({$select: `${dimCol('depto')} as k,count(*) as n,avg(${num(g)}) as g`, $group: 'k', $order: 'n DESC', $limit: 15})) : [],
-      dimCol('inst') ? soql(id, q({$select: `${dimCol('inst')} as k,count(*) as n,${avgs()}`, $group: 'k', $having: `count(*)>=${minN}`, $order: `a_${g} DESC`, $limit: 500})) : [],
-      dimCol('prog') ? soql(id, q({$select: `${dimCol('prog')} as k,count(*) as n,${avgs()}`, $group: 'k', $having: `count(*)>=${minN}`, $order: `a_${g} DESC`, $limit: 500})) : [],
+    const [tot, byPerRaw, byDeptRaw, byInstRaw, byProgRaw] = await Promise.all([
+      soql(id, q({$select: `count(*) as n,${avgs()}`})),
+      dimCol('periodo') ? soql(id, q({$select: `periodo as k,count(*) as n,${avgs()}`, $group: 'k', $order: 'k', $limit: 200})) : [],
+      dimCol('depto') ? soql(id, q({$select: `${dimCol('depto')} as k,count(*) as n,${avgs()}`, $group: 'k', $order: 'n DESC', $limit: 15})) : [],
+      dimCol('inst') ? soql(id, q({$select: `${dimCol('inst')} as k,count(*) as n,${avgs()}`, $group: 'k', $having: `count(*)>=${minN}`, $order: 'n DESC', $limit: 1000})) : [],
+      dimCol('prog') ? soql(id, q({$select: `${dimCol('prog')} as k,count(*) as n,${avgs()}`, $group: 'k', $having: `count(*)>=${minN}`, $order: 'n DESC', $limit: 1000})) : [],
     ]);
-    const t = tot[0] || {};
+    const [byPer, byDept, byInst, byProg] = [byPerRaw, byDeptRaw, byInstRaw, byProgRaw].map(withG);
+    const t = {...(tot[0] || {}), g: gOf(tot[0] || {})};
     $('#kpis').innerHTML = [
       ['Evaluados', fmt(t.n, 0)],
-      ['Puntaje global prom.', fmt(t['a_' + g])],
-      ['Mínimo', fmt(t.mn, 0)],
-      ['Máximo', fmt(t.mx, 0)],
-      ...S.mods.slice(0, 6).map(m => [prettyMod(m), fmt(t['a_' + m])]),
+      ['Promedio general (módulos)', fmt(t.g)],
+      ...S.mods.map(m => [prettyMod(m), fmt(t['a_' + m])]),
     ].map(([l, v]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('');
 
-    draw('cTrend', {type: 'line', data: {labels: byPer.map(r => r.k), datasets: [{label: 'Global prom.', data: byPer.map(r => +r.g), borderColor: '#2457d6', tension: .25}]}, options: {scales: {y: {beginAtZero: false}}}});
+    draw('cTrend', {type: 'line', data: {labels: byPer.map(r => r.k), datasets: [{label: 'Promedio módulos', data: byPer.map(r => +r.g), borderColor: '#2457d6', tension: .25}]}, options: {scales: {y: {beginAtZero: false}}}});
     draw('cCount', {type: 'bar', data: {labels: byPer.map(r => r.k), datasets: [{label: 'Evaluados', data: byPer.map(r => +r.n), backgroundColor: '#7aa2f7'}]}});
     draw('cMods', {type: 'bar', data: {labels: S.mods.map(prettyMod), datasets: [{label: 'Promedio', data: S.mods.map(m => +t['a_' + m]), backgroundColor: '#2a9d8f'}]}, options: {indexAxis: 'y'}});
-    draw('cDept', {type: 'bar', data: {labels: byDept.map(r => r.k), datasets: [{label: 'Global prom.', data: byDept.map(r => +r.g), backgroundColor: '#e9a23b'}]}, options: {indexAxis: 'y'}});
+    draw('cDept', {type: 'bar', data: {labels: byDept.map(r => r.k), datasets: [{label: 'Promedio módulos', data: byDept.map(r => +r.g), backgroundColor: '#e9a23b'}]}, options: {indexAxis: 'y'}});
     S.rows = {inst: byInst, prog: byProg};
     renderTable('inst', '#tInst');
     renderTable('prog', '#tProg');
@@ -207,8 +209,8 @@ async function refresh() {
 function renderTable(key, sel) {
   const rows = S.rows[key] || [];
   if (!dimCol(key)) { $(sel).innerHTML = '<i>No disponible en este dataset</i>'; return; }
-  const cols = [['k', key === 'inst' ? 'Institución' : 'Programa'], ['n', 'Evaluados'], ['a_' + S.global, 'Global'], ...S.mods.map(m => ['a_' + m, prettyMod(m)])];
-  const s = S.sort[key] || {c: 'a_' + S.global, d: -1};
+  const cols = [['k', key === 'inst' ? 'Institución' : 'Programa'], ['n', 'Evaluados'], ['g', 'Promedio'], ...S.mods.map(m => ['a_' + m, prettyMod(m)])];
+  const s = S.sort[key] || {c: 'g', d: -1};
   const data = [...rows].sort((a, b) => s.c === 'k' ? s.d * String(a.k).localeCompare(b.k) : s.d * ((+a[s.c] || 0) - (+b[s.c] || 0)));
   $(sel).innerHTML = `<table><thead><tr>${cols.map(([c, l]) => `<th data-c="${c}">${l}</th>`).join('')}</tr></thead><tbody>` +
     data.map((r, i) => `<tr data-i="${i}">${cols.map(([c], j) => `<td>${j === 0 ? (r.k || '(sin dato)') : fmt(r[c], c === 'n' ? 0 : 1)}</td>`).join('')}</tr>`).join('') + '</tbody></table>';
