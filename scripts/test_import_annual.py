@@ -5,10 +5,25 @@ from io import BytesIO
 
 from openpyxl import Workbook
 
-from import_annual import SOURCES, discover, parse_book
+from import_annual import SOURCES, Comparison, discover, parse_book
 
 
 class AnnualTests(unittest.TestCase):
+    def test_program_benchmarks_are_distinct(self):
+        c = Comparison()
+        idx = {k:i for i,k in enumerate(["nombre institucion","nbc","nombre programa acad","id programa acad",
+                                         "nombre sede","promedio global","cantidadevaluados"])}
+        row = ["IES A", "Sistemas", "Ingeniería", 17, "Mocoa", 133, 26]
+        for level in ["programa academico", "nbc institucion", "sede", "pais"]:
+            c.add(level, "puntaje global", row, idx, "pro")
+        c.add("programa academico", "puntaje global", row, idx, "pro")
+        groups = {r["kind"]:r for r in c.export()}
+        self.assertEqual(set(groups), {"program","peer","country"})
+        self.assertEqual(groups["peer"]["nbc"], "Sistemas")
+        self.assertEqual(groups["country"]["ies"], "")
+        self.assertEqual(groups["program"]["scores"]["global"], [None,None])
+        self.assertEqual(groups["peer"]["scores"]["global"], [133,26])
+
     def test_discovery(self):
         def link(year):
             return (f'<a href="/{year}.xlsx">Descargue la base de datos de resultados '

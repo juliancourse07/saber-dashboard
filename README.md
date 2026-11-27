@@ -1,6 +1,8 @@
 # Tablero Saber Pro / Saber TyT
 
-La [vista anual](https://juliancourse07.github.io/saber-dashboard/) compara publicaciones oficiales del ICFES. El navegador descarga un resumen JSON de los últimos cinco años, no los libros de Excel; la tabla conserva el enlace al archivo original de cada año.
+La [portada](https://juliancourse07.github.io/saber-dashboard/) abre el comparador institucional de Uniputumayo, reconociendo también la denominación Instituto Tecnológico del Putumayo. Selecciona examen, año, IES, programa/sede y puntaje global o módulo genérico. Sólo se descarga el detalle agregado del año seleccionado. La referencia país usa la fila nacional del ICFES, no un promedio de instituciones. Para programas se añade el núcleo básico del conocimiento (NBC) y se buscan pares del mismo NBC y carácter académico. El carácter se cruza por nombre normalizado con el directorio del MEN; sin coincidencia inequívoca no se infiere.
+
+La [tendencia nacional](https://juliancourse07.github.io/saber-dashboard/nacional.html) conserva la vista de los últimos cinco años y los enlaces a los Excel oficiales.
 
 El [explorador de microdatos](https://juliancourse07.github.io/saber-dashboard/detalle.html) consulta datos.gov.co en vivo. Detecta el último año de cada examen a partir de `periodo` y restringe filtros, indicadores y rankings a ese año y los cuatro anteriores. Los agregados anuales y los microdatos se muestran por separado: no se suman y pueden tener coberturas diferentes.
 

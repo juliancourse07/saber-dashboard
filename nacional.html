@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resultados anuales · Saber Pro y TyT</title>
+<style>
+:root{font:16px/1.5 system-ui,sans-serif;color:#142d42;background:#f3f6f8;--ink:#103348;--muted:#526779;--accent:#00746e;--line:#d7e2e6}
+*{box-sizing:border-box}body{margin:0}header{color:white;background:#123448;border-bottom:5px solid #37c8ac}
+.wrap,main{max-width:1100px;margin:auto;padding:22px clamp(16px,4vw,42px)}header p{margin:5px 0;color:#e2f1f2}h1{font-size:clamp(1.65rem,4vw,2.6rem);margin:2px 0;line-height:1.2}
+.eyebrow,dt{font-size:.76rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.eyebrow{color:#8fe3d5}
+h2{font-size:1.18rem;margin:0 0 .25rem}p{margin:.45rem 0}.toolbar,.links{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button,select{font:inherit;padding:.45rem .9rem;border:1px solid #9fb5c0;background:white;color:var(--ink);border-radius:7px;cursor:pointer}
+button[aria-pressed="true"]{color:white;background:var(--ink);border-color:var(--ink)}button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #e99321;outline-offset:3px}
+.spacer{flex:1}.status,small,.desc{color:var(--muted)}.status{margin:12px 0;font-size:.86rem}.status.warn{color:#88470b}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:12px;margin:16px 0}
+.card,.kpis>div{background:white;border:1px solid var(--line);border-radius:12px;padding:clamp(14px,2.5vw,24px)}dt{color:var(--muted)}dd{margin:6px 0 0;font-size:clamp(1.4rem,3vw,2rem);font-weight:700;color:var(--ink)}
+.card{margin-bottom:14px}.chartrow{display:grid;grid-template-columns:3rem 1fr auto;align-items:center;gap:12px;margin:12px 0;font-variant-numeric:tabular-nums}
+.track{background:#edf3f5;border-radius:4px;overflow:hidden}.fill{height:16px;background:#40858c}.chartrow:last-child .fill{background:var(--accent)}
+.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-size:.86rem}
+a{color:#006562;text-underline-offset:.18em}.links{justify-content:space-between}.links a{font-weight:650}footer{font-size:.88rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<header><div class="wrap"><span class="eyebrow">Observatorio de resultados · Colombia</span>
+  <h1>Saber Pro y Saber TyT</h1><p>Compara los últimos cinco años publicados por el ICFES.</p></div></header>
+<main>
+  <p><a href="./">← Comparador de Uniputumayo</a></p>
+  <nav class="toolbar" aria-label="Seleccionar examen">
+    <button data-exam="pro" aria-pressed="true">Saber Pro</button><button data-exam="tyt" aria-pressed="false">Saber TyT</button>
+    <span class="spacer"></span><button id="reload">Actualizar vista</button>
+  </nav>
+  <p class="status" role="status" id="status">Cargando la última publicación…</p>
+  <section id="analysis" hidden>
+    <dl class="kpis">
+      <div><dt>Examen</dt><dd id="examName"></dd></div>
+      <div><dt>Cobertura publicada</dt><dd id="coverage"></dd></div>
+      <div><dt id="latestLabel">Último resultado</dt><dd id="latest"></dd><small id="change"></small></div>
+    </dl>
+    <article class="card">
+      <div class="toolbar"><h2>Evolución anual</h2><span class="spacer"></span>
+        <label for="module">Resultado</label><select id="module"></select>
+        <label for="metric">Indicador</label><select id="metric"></select></div>
+      <p class="desc" id="description"></p><div id="bars"></div>
+    </article>
+    <article class="card"><h2>Cifras y fuentes por año</h2><p class="desc">Consulta el archivo oficial para ver el desglose completo.</p>
+      <div class="scroll"><table><thead id="head"></thead><tbody id="rows"></tbody></table></div>
+    </article>
+  </section>
+  <aside class="card"><h2>¿Necesitas cruzar filtros?</h2><p class="desc">Los microdatos de datos.gov.co permiten filtrar por institución, programa y otras variables. Su último periodo puede ser anterior al del informe anual.</p>
+    <div class="links"><a id="detail" href="detalle.html#pro">Explorar microdatos →</a><a id="source" hidden>Publicación del ICFES ↗</a></div>
+  </aside>
+  <footer>El tablero revisa a diario las publicaciones oficiales. Una actualización del sitio web del ICFES no implica que exista un nuevo año de resultados.</footer>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const number = new Intl.NumberFormat('es-CO', {maximumFractionDigits: 1});
+const format = value => Number.isFinite(value) ? number.format(value) : 'Sin dato';
+const names = {pro:'Saber Pro', tyt:'Saber TyT'};
+let exam = 'pro', snapshot, loading = false;
+const metrics = [
+  {key:'meanScore', label:'Puntaje promedio', description:'Promedio nacional publicado por el ICFES para el resultado seleccionado.'},
+  {key:'evaluated', label:'Evaluados', description:'Evaluados reportados en el resultado seleccionado. Los conteos de los módulos no se suman.'}
+];
+function values(y) {
+  const selected = $('module').value;
+  return selected === 'global' ? y.metrics.global ?? {} : y.metrics.modules.find(m => m.name === selected) ?? {};
+}
+function cell(tag, text) {
+  const el = document.createElement(tag);
+  el.textContent = text;
+  return el;
+}
+function chart() {
+  const years = snapshot.exams[exam].years.map(y => ({year:y.year,...values(y)}));
+  const metric = metrics.find(m => m.key === $('metric').value);
+  $('description').textContent = metric.description;
+  const ordered = [...years].sort((a,b) => b.year-a.year);
+  const latest = ordered[0], previous = ordered.find(y => y.year === latest.year - 1);
+  $('latestLabel').textContent = `${metric.label} · ${latest.year}`;
+  $('latest').textContent = format(latest[metric.key]);
+  const delta = previous && Number.isFinite(previous[metric.key]) && Number.isFinite(latest[metric.key])
+    ? latest[metric.key] - previous[metric.key] : null;
+  $('change').textContent = delta == null ? 'Sin comparación interanual' :
+    `${delta > 0 ? '+' : ''}${format(delta)} frente a ${previous.year}`;
+  const max = Math.max(1, ...years.map(y => y[metric.key] ?? 0));
+  $('bars').replaceChildren(...[...years].sort((a,b) => a.year-b.year).map(y => {
+    const row = document.createElement('div'), track = document.createElement('div'), fill = document.createElement('div');
+    row.className = 'chartrow'; track.className = 'track'; fill.className = 'fill';
+    fill.style.width = `${100 * (y[metric.key] ?? 0) / max}%`;
+    track.append(fill); row.append(cell('strong', y.year), track, cell('span', format(y[metric.key])));
+    return row;
+  }));
+}
+function render() {
+  document.querySelectorAll('[data-exam]').forEach(b => b.setAttribute('aria-pressed', b.dataset.exam === exam));
+  $('detail').href = 'detalle.html#' + exam;
+  if (!snapshot) return;
+  const series = snapshot.exams[exam], years = [...series.years].sort((a,b) => b.year-a.year);
+  const previous = $('module').value;
+  const options = [...new Set(years.flatMap(y => y.metrics.modules.map(m => m.name)))].sort();
+  if (years.some(y => y.metrics.global)) options.unshift('global');
+  $('module').replaceChildren(...options.map(v => new Option(v === 'global' ? 'Puntaje global' : v,v)));
+  if (options.includes(previous)) $('module').value = previous;
+  $('examName').textContent = names[exam]; $('coverage').textContent = `${years.at(-1).year}–${years[0].year}`;
+  $('source').href = series.source; $('source').hidden = false;
+  const header = document.createElement('tr');
+  header.append(...['Año', ...metrics.map(m => m.label), 'Fuente'].map(t => cell('th', t)));
+  $('head').replaceChildren(header);
+  $('rows').replaceChildren(...years.map(y => {
+    const tr = document.createElement('tr'), td = document.createElement('td'), link = cell('a', `Excel ${y.year}`);
+    link.href = y.url; td.append(link);
+    const result = values(y);
+    tr.append(cell('th', y.year), ...metrics.map(m => cell('td', format(result[m.key]))), td);
+    if (result.nationalRows) td.append(` · ${result.nationalRows} filas nacionales; sin cifra única`);
+    return tr;
+  }));
+  chart(); $('analysis').hidden = false;
+}
+async function load() {
+  if (loading) return;
+  loading = true; $('reload').disabled = true;
+  try {
+    const response = await fetch('annual.json', {cache:'no-cache'});
+    if (!response.ok) throw Error(`HTTP ${response.status}`);
+    const next = await response.json();
+    for (const k of Object.keys(names)) if (!next.exams?.[k]?.years?.length) throw Error('Serie incompleta');
+    snapshot = next; render();
+    const checked = new Date(snapshot.checkedAt);
+    const stale = Date.now() - checked > 2 * 86400000;
+    $('status').classList.toggle('warn', stale);
+    $('status').textContent = `Última verificación del ICFES: ${checked.toLocaleString('es-CO', {timeZone:'America/Bogota'})} (Colombia).` +
+      (stale ? ' No se ha confirmado una actualización reciente.' : '');
+  } catch (error) {
+    $('status').classList.add('warn');
+    $('status').textContent = `No se pudo actualizar la vista (${error.message}). ` +
+      (snapshot ? 'Se conserva la consulta anterior.' : 'Reintenta o consulta los microdatos.');
+  } finally { loading = false; $('reload').disabled = false; }
+}
+$('metric').replaceChildren(...metrics.map(m => new Option(m.label,m.key)));
+$('metric').onchange = chart;
+$('module').onchange = render;
+document.querySelectorAll('[data-exam]').forEach(b => b.onclick = () => { exam = b.dataset.exam; render(); });
+$('reload').onclick = load;
+window.addEventListener('online',load);
+setInterval(load, 10 * 60 * 1000);
+load();
+</script>
+</body>
+</html>

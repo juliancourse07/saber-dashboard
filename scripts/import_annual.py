@@ -11,6 +11,8 @@ varias filas nacionales para un indicador, no se infiere una cifra única.
 """
 
 import argparse
+import csv
+import io
 import json
 import math
 import os
@@ -109,7 +111,42 @@ def metric(score, count, exam):
     return {"meanScore": score, "evaluated": int(count)}
 
 
-def parse_book(file, exam, year):
+class Comparison:
+    def __init__(self):
+        self.rows = {}
+
+    def add(self, level, measure, row, idx, exam):
+        levels = {"institucion": "ies", "programa academico": "program", "nbc institucion": "peer",
+                  "nbc": "field", "pais": "country", "nacional": "country"}
+        if level not in levels or measure not in {"puntaje global", "puntaje prueba"}:
+            return
+        def field(key):
+            value = row[idx[key]] if key in idx and idx[key] < len(row) else None
+            return "" if value is None else str(value).strip()
+        module = "global" if measure == "puntaje global" else norm(field("nombre prueba"))
+        if module != "global" and module not in GENERIC:
+            return
+        kind = levels[level]
+        inst = field("nombre institucion") if kind in {"ies", "program", "peer"} else ""
+        nbc = field("nbc") if kind in {"program", "peer", "field"} else ""
+        prog = field("nombre programa acad") if kind == "program" else ""
+        if (kind in {"ies", "program", "peer"} and not inst) or (kind == "program" and not prog):
+            return
+        ident = (kind, inst, nbc, prog, field("id programa acad") if prog else "", field("nombre sede") if prog else "")
+        record = self.rows.setdefault(ident, {})
+        score = field("promedio global" if module == "global" else "promedio prueba")
+        count = field("cantidadevaluados")
+        value = metric(score, count, exam) if score and count and float(count) > 0 else {
+            "meanScore": None, "evaluated": int(count) if count else None}
+        record[module] = national_result(record.get(module), value)
+
+    def export(self):
+        return [{"kind": k, "ies": i, "nbc": n, "program": p, "code": c, "campus": s,
+                 "scores": {m: [v["meanScore"], v["evaluated"]] for m, v in scores.items()}}
+                for (k, i, n, p, c, s), scores in self.rows.items()]
+
+
+def parse_book(file, exam, year, comparison=None):
     book = load_workbook(file, read_only=True, data_only=True)
     modules = {}
     overall = None
@@ -126,7 +163,7 @@ def parse_book(file, exam, year):
                 continue
             if any(headers.count(f) != 1 for f in FIELDS):
                 raise ValueError(f"{sheet.title}: encabezado duplicado")
-            idx = {f: headers.index(f) for f in FIELDS}
+            idx = {f: i for i, f in enumerate(headers)}
             for n, row in enumerate(rows, 2):
                 if not row or not any(row):
                     continue
@@ -137,6 +174,8 @@ def parse_book(file, exam, year):
                         exams.add(exam_name)
                     level = norm(row[idx["agregacion"]])
                     levels.add(level)
+                    if comparison is not None:
+                        comparison.add(level, norm(row[idx["medida agregacion"]]), row, idx, exam)
                     if level not in {"pais", "nacional"}:
                         continue
                     measure = norm(row[idx["medida agregacion"]])
@@ -189,12 +228,28 @@ def build(session, scratch):
                         for chunk in response.iter_content(1024 * 1024):
                             file.write(chunk)
                     file.seek(0)
-                    metrics = parse_book(file, exam, year)
+                    comparison = Comparison()
+                    metrics = parse_book(file, exam, year, comparison)
+                    records = comparison.export()
+                    if not any(r["kind"] == "program" for r in records):
+                        print(f"AVISO: {exam} {year} no tiene programas reconocidos", file=sys.stderr)
+                    (scratch / f"comparar-{exam}-{year}.json").write_text(
+                        json.dumps(records, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             except Exception as error:
                 raise RuntimeError(f"{exam} {year} ({url}): {error}") from error
             years.append({"year": year, "url": url, "metrics": metrics})
         exams[exam] = {"source": source, "years": years}
-    return {"checkedAt": datetime.now(timezone.utc).isoformat(), "exams": exams}
+    directory_url = "https://www.datos.gov.co/api/views/n5yy-8nav/rows.csv?accessType=DOWNLOAD"
+    with session.get(directory_url, timeout=(15, 90)) as response:
+        response.raise_for_status()
+        categories = defaultdict(set)
+        for row in csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))):
+            if row["Nombre Institución"] and row["Carácter Académico"]:
+                categories[norm(row["Nombre Institución"])].add(row["Carácter Académico"].strip())
+        if not categories:
+            raise ValueError("El directorio del MEN no devolvió categorías institucionales")
+    return {"checkedAt": datetime.now(timezone.utc).isoformat(), "exams": exams,
+            "categories": {k: next(iter(v)) for k, v in categories.items() if len(v) == 1}}
 
 
 def main():
