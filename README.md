@@ -6,6 +6,8 @@ El [explorador de microdatos](https://juliancourse07.github.io/saber-dashboard/d
 
 ## Actualización
 
+Si un indicador presenta varias filas nacionales en el mismo año, el tablero indica cuántas hay y enlaza al Excel: no suma los grupos ni elige una fila como si fuera el total.
+
 El flujo `Deploy dashboard` prepara la publicación en cada cambio de `main`, bajo demanda y diariamente a las 10:23 UTC (05:23 en Colombia). Si falla la importación no se reemplaza el sitio por un informe incompleto. La vista anual indica cuándo se verificó la fuente; una pestaña abierta comprueba el resumen cada diez minutos.
 
 Para reproducir la vista anual localmente, instala las dependencias en un entorno virtual, ejecuta `python scripts/import_annual.py annual.json` y sirve el directorio con `python -m http.server`. Ejecuta `node --test scripts/test-detail.mjs` para comprobar el alcance y la paginación de las consultas de microdatos.

@@ -109,7 +109,9 @@ function render() {
   $('rows').replaceChildren(...years.map(y => {
     const tr = document.createElement('tr'), td = document.createElement('td'), link = cell('a', `Excel ${y.year}`);
     link.href = y.url; td.append(link);
-    tr.append(cell('th', y.year), ...metrics.map(m => cell('td', format(values(y)[m.key]))), td);
+    const result = values(y);
+    tr.append(cell('th', y.year), ...metrics.map(m => cell('td', format(result[m.key]))), td);
+    if (result.nationalRows) td.append(` · ${result.nationalRows} filas nacionales; sin cifra única`);
     return tr;
   }));
   chart(); $('analysis').hidden = false;

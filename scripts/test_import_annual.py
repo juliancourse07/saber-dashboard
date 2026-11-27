@@ -54,10 +54,16 @@ class AnnualTests(unittest.TestCase):
         self.assertIn({"name": "INGLÉS", "meanScore": 113, "evaluated": 96}, metrics["modules"])
         self.assertIsNone(parse_book(self.book(global_score=False), "tyt", 2025)["global"])
 
-    def test_ambiguous_or_invalid_data(self):
-        for row in (["PUNTAJE_PRUEBA", 96, "Ingles", None, 113],
-                    ["PUNTAJE_GLOBAL", 100, None, 110],
-                    ["PUNTAJE_PRUEBA", 8, "Módulo específico", None, 201],
+    def test_multiple_national_rows_do_not_become_a_total(self):
+        rows = [["PUNTAJE_PRUEBA", 80, "INGLÉS", None, 101]] * 2
+        rows.append(["PUNTAJE_GLOBAL", 100, None, 110])
+        data = parse_book(self.book(rows), "tyt", 2025)
+        self.assertEqual(data["global"], {"nationalRows": 2, "meanScore": None, "evaluated": None})
+        self.assertIn({"name": "INGLÉS", "nationalRows": 3, "meanScore": None, "evaluated": None}, data["modules"])
+        self.assertIn({"name": "LECTURA CRÍTICA", "meanScore": 109, "evaluated": 100}, data["modules"])
+
+    def test_invalid_data(self):
+        for row in (["PUNTAJE_PRUEBA", 8, "Módulo específico", None, 201],
                     ["PUNTAJE_PRUEBA", -1, "Módulo específico", None, 98]):
             with self.subTest(row=row), self.assertRaises(ValueError):
                 parse_book(self.book([row]), "tyt", 2025)

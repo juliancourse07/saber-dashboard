@@ -6,7 +6,8 @@ Instalación: python -m pip install -r scripts/requirements.txt
 metrics.global y cada entrada de metrics.modules contienen meanScore y evaluated
 de una sola fila nacional de puntaje; no se suman módulos, sedes ni regiones.
 Los cinco módulos genéricos son obligatorios. Se incluyen también los específicos
-que tengan fila nacional. Un global ausente se representa con null.
+que tengan fila nacional. Un global ausente se representa con null. Si hay
+varias filas nacionales para un indicador, no se infiere una cifra única.
 """
 
 import argparse
@@ -144,16 +145,16 @@ def parse_book(file, exam, year):
                         continue
                     count = row[idx["cantidadevaluados"]]
                     if measure == "puntaje global":
-                        if overall is not None:
-                            raise ValueError("más de un puntaje global nacional")
-                        overall = metric(row[idx["promedio global"]], count, exam)
+                        value = metric(row[idx["promedio global"]], count, exam)
+                        overall = national_result(overall, value)
                     else:
                         name = row[idx["nombre prueba"]]
                         key = norm(name)
-                        if not key or key in modules:
-                            raise ValueError(f"módulo nacional sin nombre o duplicado: {name!r}")
+                        if not key:
+                            raise ValueError("módulo nacional sin nombre")
+                        value = metric(row[idx["promedio prueba"]], count, exam)
                         modules[key] = {"name": str(name).strip(),
-                                        **metric(row[idx["promedio prueba"]], count, exam)}
+                                        **national_result(modules.get(key), value)}
                 except (IndexError, ValueError) as error:
                     raise ValueError(f"{sheet.title}, fila {n}: {error}") from error
     finally:
@@ -163,6 +164,12 @@ def parse_book(file, exam, year):
         raise ValueError(f"faltan módulos nacionales: {sorted(missing)}; hojas: {schemas}; "
                          f"agregaciones: {sorted(levels)}; medidas nacionales: {sorted(measures)}")
     return {"global": overall, "modules": [modules[k] for k in sorted(modules)]}
+
+
+def national_result(previous, value):
+    if previous is None:
+        return value
+    return {"meanScore": None, "evaluated": None, "nationalRows": previous.get("nationalRows", 1) + 1}
 
 
 def build(session, scratch):
