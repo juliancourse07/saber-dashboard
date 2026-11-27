@@ -48,6 +48,16 @@ function compare() {
     'No se encontró una categoría inequívoca para esta institución en el directorio del MEN. No se asignan pares por similitud de nombre.';
   $('peers').replaceChildren(...matches.filter(r => !$('peer').value || r.ies === $('peer').value).map(r => tableRow(r.ies,r)));
   $('peerNote').textContent = matches.length ? `${matches.length} IES con categoría y puntaje disponibles. La institución seleccionada no se incluye entre sus pares.` : 'No hay IES comparables con estos filtros.';
+  const sample = $('peer').value ? matches.filter(r => r.ies === $('peer').value) : matches.slice(0,3);
+  const groups = [['Mi selección',score], ...sample.map(r => [r.ies,val(r)[0]])];
+  const limit = $('exam').value === 'pro' ? 300 : 200;
+  $('benchmark').replaceChildren(...groups.map(([name,n]) => {
+    const row=el('div',''), track=el('i',''), bar=el('b','');
+    row.className='benchrow'; bar.style.width=`${100*(n ?? 0)/limit}%`; track.append(bar);
+    row.append(el('span',name),track,el('strong',fmt(n))); return row;
+  }));
+  if (!$('peer').value && sample.length) $('peerNote').textContent += ' El gráfico destaca hasta tres pares con mayor promedio; la tabla incluye todos.';
+  historical(ies,program,module,$('peer').value);
 }
 function institution() {
   const ies = $('ies').value;
@@ -72,6 +82,7 @@ async function period() {
   $('analysis').hidden = true; $('retry').hidden = true; $('status').textContent = 'Cargando el año seleccionado…';
   for (const id of ['ies','program','module']) { $(id).disabled = true; $(id).replaceChildren(); }
   $('book').href = manifest.exams[exam].years.find(y => String(y.year) === year).url;
+  $('cut').textContent = `${exam === 'pro' ? 'Saber Pro' : 'Saber TyT'} · Corte ${year}`;
   try {
     const result = await json(`comparar-${exam}-${year}.json`);
     if (v !== version) return;
@@ -95,3 +106,7 @@ $('exam').onchange = examChange; $('year').onchange = period; $('ies').onchange 
 for (const id of ['program','module','peer']) $(id).onchange = compare;
 $('retry').onclick = () => manifest ? period() : init();
 init();
+json('brand.json').then(({url}) => {
+  if (!url) return;
+  const logo=$('logo'); logo.onload=() => {logo.hidden=false; if (logo.naturalWidth > logo.naturalHeight*1.8) $('brandName').hidden=true;}; logo.src=url;
+}).catch(e => console.warn('No se pudo cargar la identidad institucional:',e.message));

@@ -10,6 +10,8 @@ El [explorador de microdatos](https://juliancourse07.github.io/saber-dashboard/d
 
 Si un indicador presenta varias filas nacionales en el mismo año, el tablero indica cuántas hay y enlaza al Excel: no suma los grupos ni elige una fila como si fuera el total.
 
-El flujo `Deploy dashboard` prepara la publicación en cada cambio de `main`, bajo demanda y diariamente a las 10:23 UTC (05:23 en Colombia). Si falla la importación no se reemplaza el sitio por un informe incompleto. La vista anual indica cuándo se verificó la fuente; una pestaña abierta comprueba el resumen cada diez minutos.
+El flujo `Deploy dashboard` revisa los archivos diariamente a las 10:23 UTC (05:23 en Colombia). Compara la huella de las cifras, las fuentes y el directorio contra la versión publicada. Una revisión sin novedades omite el despliegue; las correcciones del mismo año también se detectan. Los cambios de código en `main` y las ejecuciones manuales sí publican. Si falla la importación no se reemplaza el sitio por un informe incompleto.
 
-Para reproducir la vista anual localmente, instala las dependencias en un entorno virtual, ejecuta `python scripts/import_annual.py annual.json` y sirve el directorio con `python -m http.server`. Ejecuta `node --test scripts/test-detail.mjs` para comprobar el alcance y la paginación de las consultas de microdatos.
+La portada carga series históricas sólo para la selección, sus referentes nacionales y el par elegido. No une periodos ausentes ni combina programas de códigos o sedes diferentes. El distintivo se enlaza desde el sitio de Uniputumayo; si no está disponible se conserva el nombre en texto.
+
+Para reproducir la vista localmente, instala `scripts/requirements.txt` en un entorno virtual, ejecuta `python scripts/import_annual.py annual.json`, `python scripts/prepare_site.py .` y `python scripts/brand.py .`, y sirve el directorio con `python -m http.server`.

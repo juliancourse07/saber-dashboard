@@ -9,21 +9,24 @@ nav{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px}a{color:var(--green)
 .filters,.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(235px,100%),1fr));gap:12px}label{font-size:.85rem;font-weight:650}select,button{display:block;margin-top:4px;padding:9px;border:1px solid #91af9f;border-radius:6px;background:white;color:inherit;width:100%;font:inherit}button{width:auto;cursor:pointer}
 strong.big{display:block;font-size:1.9rem;color:var(--green)}small,.note{color:#46695e}.kpi{border-top:4px solid #328764}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:8px;text-align:right;border-bottom:1px solid var(--line)}th:first-child,td:first-child{text-align:left}thead{background:#edf4ef}
 select:focus-visible,a:focus-visible,button:focus-visible{outline:3px solid #ae7919}footer{font-size:.86rem}
-</style></head><body>
-<header><div><small>UNIPUTUMAYO · ANÁLISIS INSTITUCIONAL</small><h1>¿Cómo nos fue en las pruebas Saber?</h1><p>Compara tu institución o programa con Colombia y con otras IES del mismo carácter académico.</p></div></header>
+</style><link rel="stylesheet" href="dashboard.css"></head><body>
+<div class="mast"><div class="brand"><a href="https://itp.edu.co/ITP2022/" class="signature"><img id="logo" hidden alt="Uniputumayo"><span id="brandName">UNIPUTUMAYO</span></a><span class="division">Analítica académica</span></div></div>
+<header><div><small>OBSERVATORIO ACADÉMICO &nbsp; / &nbsp; RESULTADOS ICFES</small><h1>Trayectoria Saber</h1><p>El desempeño de tu programa, año a año y frente a sus referentes.</p><span class="cut" id="cut">Saber Pro · Saber TyT</span></div></header>
 <main>
 <nav><a href="nacional.html">Tendencia nacional de cinco años</a><a href="detalle.html">Explorar microdatos</a></nav>
-<section><h2>Selecciona qué quieres analizar</h2><div class="filters">
+<section class="filterbox"><span class="kicker">CONFIGURACIÓN DE LA VISTA</span><h2>Tu selección</h2><div class="filters">
 <label>Examen<select id="exam"><option value="pro">Saber Pro</option><option value="tyt">Saber TyT</option></select></label>
 <label>Año<select id="year"></select></label><label>Institución<select id="ies"></select></label>
 <label>Programa y sede<select id="program"></select></label><label>Puntaje<select id="module"></select></label></div>
 <p id="status" role="status">Cargando fuentes oficiales…</p><button id="retry" hidden>Reintentar</button></section>
 <div id="analysis" hidden>
 <div class="kpis" id="cards"></div>
-<section><h2>Mi resultado frente a Colombia</h2><p class="note" id="scope"></p>
+<section class="timeline"><span class="kicker">01 &nbsp; / &nbsp; EVOLUCIÓN</span><h2>Trayectoria de cinco años</h2><p id="historyScope" class="note"></p><div id="historyChart"></div><div id="legend"></div>
+<details><summary>Ver cifras del histórico</summary><div class="scroll"><table><thead id="historyHead"></thead><tbody id="historyRows"></tbody></table></div></details></section>
+<section><span class="kicker">02 &nbsp; / &nbsp; REFERENCIA NACIONAL</span><h2>Mi resultado frente a Colombia</h2><p class="note" id="scope"></p>
 <div class="scroll"><table><thead><tr><th>Referencia</th><th>Promedio</th><th>Evaluados</th><th>Mi brecha¹</th></tr></thead><tbody id="refs"></tbody></table></div></section>
-<section><h2>Otras IES de la misma categoría</h2><p id="category" class="note"></p><label>Comparar con<select id="peer"></select></label>
+<section><span class="kicker">03 &nbsp; / &nbsp; PARES ACADÉMICOS</span><h2>Otras IES de la misma categoría</h2><p id="category" class="note"></p><label>Comparar con (también en el histórico)<select id="peer"></select></label><div id="benchmark"></div>
 <div class="scroll"><table><thead><tr><th>IES comparable</th><th>Promedio</th><th>Evaluados</th><th>Mi brecha¹</th></tr></thead><tbody id="peers"></tbody></table></div>
 <p id="peerNote" class="note"></p></section></div>
 <footer>¹ Mi puntaje menos el de la referencia, en puntos. «Sin dato» no significa cero. Fuente: <a id="book">agregados anuales del ICFES</a> y <a href="https://www.datos.gov.co/d/n5yy-8nav">directorio de IES del MEN</a>. La categoría corresponde al directorio, no necesariamente al carácter vigente en el año del examen.</footer>
-</main><script src="comparar.js" defer></script></body></html>
+</main><script src="historico.js" defer></script><script src="comparar.js" defer></script></body></html>

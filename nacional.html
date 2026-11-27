@@ -127,10 +127,8 @@ async function load() {
     for (const k of Object.keys(names)) if (!next.exams?.[k]?.years?.length) throw Error('Serie incompleta');
     snapshot = next; render();
     const checked = new Date(snapshot.checkedAt);
-    const stale = Date.now() - checked > 2 * 86400000;
-    $('status').classList.toggle('warn', stale);
-    $('status').textContent = `Última verificación del ICFES: ${checked.toLocaleString('es-CO', {timeZone:'America/Bogota'})} (Colombia).` +
-      (stale ? ' No se ha confirmado una actualización reciente.' : '');
+    $('status').classList.remove('warn');
+    $('status').textContent = `Versión publicada: ${checked.toLocaleString('es-CO', {timeZone:'America/Bogota'})} (Colombia). La revisión diaria conserva esta versión si los datos no cambian.`;
   } catch (error) {
     $('status').classList.add('warn');
     $('status').textContent = `No se pudo actualizar la vista (${error.message}). ` +
