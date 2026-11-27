@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard Saber Pro / Saber TyT</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--ink:#1d2433;--mute:#667085;--pri:#2457d6;--line:#e3e7ee}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#14213d;color:#fff;padding:12px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+header h1{font-size:18px;margin:0}
+header small{opacity:.75}
+.tabs button{background:transparent;color:#fff;border:1px solid #ffffff55;padding:6px 14px;border-radius:6px;cursor:pointer;margin-left:6px}
+.tabs button.on{background:var(--pri);border-color:var(--pri)}
+main{padding:16px 20px;max-width:1400px;margin:auto}
+.filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;background:var(--card);padding:12px;border-radius:10px;border:1px solid var(--line)}
+.filters label{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;display:block}
+.filters input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px}
+.bar{display:flex;gap:10px;margin:10px 0;align-items:center;flex-wrap:wrap}
+.bar button{padding:6px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
+.bar .st{color:var(--mute);font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.kpi b{display:block;font-size:24px;color:var(--pri)}
+.kpi span{color:var(--mute);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
+.card h3{margin:0 0 8px;font-size:14px}
+.card canvas{max-height:300px}
+.tbl{max-height:360px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{position:sticky;top:0;background:#fff;cursor:pointer}
+tbody tr{cursor:pointer}tbody tr:hover{background:#eef3ff}
+.err{background:#fde8e8;color:#9b1c1c;padding:10px;border-radius:8px;margin:10px 0;display:none}
+.note{color:var(--mute);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Resultados Saber Pro / Saber TyT</h1><small id="meta">Cargando…</small></div>
+  <div class="tabs"><button data-ds="pro" class="on">Saber Pro</button><button data-ds="tyt">Saber TyT</button></div>
+</header>
+<main>
+  <p><a href="./">← Volver al análisis anual del ICFES</a></p>
+  <h2>Microdatos por periodo</h2>
+  <p id="coverage">Verificando la cobertura de esta API…</p>
+  <div class="err" id="err"></div>
+  <div class="filters" id="filters"></div>
+  <div class="bar">
+    <button id="clear">Limpiar filtros</button>
+    <button id="refresh">Actualizar ahora</button>
+    <label>Mín. evaluados en rankings <input id="minN" type="number" value="30" min="1" style="width:70px"></label>
+    <span class="st" id="status"></span>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="grid">
+    <div class="card"><h3>Promedio de módulos por periodo</h3><canvas id="cTrend"></canvas></div>
+    <div class="card"><h3>Promedio por módulo</h3><canvas id="cMods"></canvas></div>
+    <div class="card"><h3>Promedio general por departamento (top 15 por evaluados)</h3><canvas id="cDept"></canvas></div>
+    <div class="card"><h3>Evaluados por periodo</h3><canvas id="cCount"></canvas></div>
+    <div class="card"><h3>Ranking de instituciones <small>(clic = filtrar)</small></h3><div class="tbl" id="tInst"></div></div>
+    <div class="card"><h3>Ranking de programas <small>(clic = filtrar)</small></h3><div class="tbl" id="tProg"></div></div>
+  </div>
+  <p class="note">Fuente: datos.gov.co (ICFES) vía API Socrata, consultada en vivo. Se recalcula al abrir, al cambiar filtros y cada 10 min si el dataset fue actualizado.</p>
+</main>
+<script>
+const DOMAIN = 'https://www.datos.gov.co';
+const APP_TOKEN = ''; // opcional: token de aplicación Socrata para más cuota
+const DATASETS = {
+  pro: {id: 'u37r-hjmu', name: 'Saber Pro'},
+  tyt: {id: 'iwgf-bkfk', name: 'Saber TyT'}
+};
+const POLL_MS = 10 * 60 * 1000;
+
+// Dimensiones de filtro: etiqueta + columnas candidatas (se usa la primera que exista)
+const DIMS = [
+  {key: 'periodo', label: 'Periodo', cands: ['periodo']},
+  {key: 'inst', label: 'Institución', cands: ['inst_nombre_institucion']},
+  {key: 'prog', label: 'Programa académico', cands: ['estu_prgm_academico']},
+  {key: 'depto', label: 'Departamento (institución)', cands: ['estu_inst_departamento', 'estu_prgm_departamento', 'estu_depto_reside']},
+  {key: 'mcpio', label: 'Municipio (programa)', cands: ['estu_prgm_municipio', 'estu_inst_municipio']},
+  {key: 'caracter', label: 'Carácter académico', cands: ['inst_caracter_academico']},
+  {key: 'origen', label: 'Origen / naturaleza', cands: ['inst_origen']},
+  {key: 'metodo', label: 'Metodología', cands: ['estu_metodo_prgm']},
+  {key: 'grupo', label: 'Grupo de referencia', cands: ['gru_gruporeferencia']},
+  {key: 'nucleo', label: 'Núcleo de pregrado', cands: ['estu_nucleo_pregrado']},
+  {key: 'genero', label: 'Género', cands: ['estu_genero']},
+  {key: 'estrato', label: 'Estrato', cands: ['fami_estratovivienda']},
+];
+
+let S = {ds: 'pro', cols: {}, dims: [], mods: [], updatedAt: null, filters: {}, sort: {}};
+let schemaVersion = 0, queryVersion = 0, ready = false;
+const charts = {};
+const $ = s => document.querySelector(s);
+const esc = v => String(v).replace(/'/g, "''");
+const text = v => String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+const fmt = (v, d = 1) => v == null || isNaN(v) ? '–' : Number(v).toLocaleString('es-CO', {maximumFractionDigits: d});
+const prettyMod = c => c.replace(/^mod_/, '').replace(/_punt$/, '').replace(/_/g, ' ');
+
+async function soql(id, params) {
+  const url = `${DOMAIN}/resource/${id}.json?` + new URLSearchParams(params);
+  const r = await fetch(url, APP_TOKEN ? {headers: {'X-App-Token': APP_TOKEN}} : {});
+  if (!r.ok) throw new Error(`Socrata ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  return r.json();
+}
+async function meta(id) {
+  const r = await fetch(`${DOMAIN}/api/views/${id}.json`, {cache: 'no-cache'});
+  if (!r.ok) throw new Error('No se pudo leer metadatos ' + r.status);
+  return r.json();
+}
+const num = c => S.cols[c] === 'number' ? c : `${c}::number`;
+const where = (skip) => {
+  const w = S.dims.filter(d => d.key !== skip && S.filters[d.key]).map(d => `${d.col}='${esc(S.filters[d.key])}'`);
+  w.unshift(`periodo in (${S.periods.map(p => S.cols.periodo === 'number' ? p : `'${p}'`).join(',')})`);
+  return w.join(' AND ');
+};
+const q = (extra, skip) => {
+  const w = where(skip);
+  return w ? {...extra, $where: w} : extra;
+};
+
+async function loadSchema(version, filters) {
+  const ds = DATASETS[S.ds];
+  const [m, periods] = await Promise.all([meta(ds.id), soql(ds.id, {$select: 'periodo', $group: 'periodo', $order: 'periodo DESC', $limit: 5000})]);
+  if (version !== schemaVersion) return;
+  const valid = periods.map(r => String(r.periodo)).filter(p => /^20\d{2}\d{0,2}$/.test(p));
+  if (!valid.length) throw new Error('La API no devolvió periodos reconocibles.');
+  const end = Math.max(...valid.map(p => Number(p.slice(0, 4))));
+  S.periods = valid.filter(p => Number(p.slice(0, 4)) >= end - 4);
+  $('#coverage').textContent = `Ventana de la API: ${end - 4}–${end}. Último año con microdatos: ${end}. Los agregados anuales del ICFES se publican por separado.`;
+  S.cols = {};
+  m.columns.forEach(c => S.cols[c.fieldName] = c.dataTypeName);
+  S.updatedAt = m.rowsUpdatedAt ? m.rowsUpdatedAt * 1000 : null;
+  S.dims = DIMS.map(d => ({...d, col: d.cands.find(c => c in S.cols)})).filter(d => d.col);
+  S.mods = Object.keys(S.cols).filter(c => /^mod_.*_punt$/.test(c));
+  S.filters = {...filters};
+  if (!S.periods.includes(S.filters.periodo)) delete S.filters.periodo;
+  S.sort = {};
+  renderFilters();
+}
+
+function renderFilters() {
+  $('#filters').innerHTML = S.dims.map(d => `
+    <div><label for="f-${d.key}">${d.label}</label>
+    <input id="f-${d.key}" data-k="${d.key}" list="dl-${d.key}" placeholder="Todos" autocomplete="off">
+    <datalist id="dl-${d.key}"></datalist></div>`).join('');
+  document.querySelectorAll('#filters input').forEach(i => {
+    i.value = S.filters[i.dataset.k] || '';
+    i.addEventListener('change', () => {
+      const v = i.value.trim();
+      if (v) S.filters[i.dataset.k] = v; else delete S.filters[i.dataset.k];
+      refresh();
+    });
+  });
+}
+
+async function allGroups(id, params, version) {
+  const rows = [], size = 1500;
+  for (let offset = 0; version === queryVersion; offset += size) {
+    const page = await soql(id, {...params, $limit: size, $offset: offset});
+    rows.push(...page);
+    if (page.length < size) break;
+  }
+  return rows;
+}
+async function loadOptions(version) {
+  const id = DATASETS[S.ds].id;
+  await Promise.all(S.dims.map(async d => {
+    try {
+      const rows = await allGroups(id, q({$select: `${d.col} as v,count(*) as n`, $group: 'v', $order: d.key === 'periodo' ? 'v DESC' : 'n DESC,v'}, d.key), version);
+      if (version === queryVersion) $(`#dl-${d.key}`).replaceChildren(...rows.filter(r => r.v != null).map(r => new Option(r.v, r.v)));
+    } catch (e) { if (version === queryVersion) $('#status').textContent = `Sugerencias incompletas (${d.label}). Puedes escribir el valor o actualizar.`; }
+  }));
+}
+
+function dimCol(key) { return (S.dims.find(d => d.key === key) || {}).col; }
+const avgs = () => S.mods.map(c => `avg(${num(c)}) as a_${c}`).join(',');
+// El dataset no trae puntaje global: se aproxima con el promedio de los módulos
+const gOf = r => {
+  const v = S.mods.map(m => parseFloat(r['a_' + m])).filter(x => !isNaN(x));
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+};
+const withG = rows => rows.map(r => ({...r, g: gOf(r)}));
+
+function draw(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart($('#' + id), cfg);
+}
+
+async function refresh() {
+  if (!ready) return;
+  const version = ++queryVersion;
+  document.querySelectorAll('#filters input').forEach(i => i.value = S.filters[i.dataset.k] || '');
+  const id = DATASETS[S.ds].id;
+  const minN = Math.max(1, +$('#minN').value || 1);
+  $('#status').textContent = 'Consultando…';
+  $('#err').style.display = 'none';
+  try {
+    const [tot, byPerRaw, byDeptRaw, byInstRaw, byProgRaw] = await Promise.all([
+      soql(id, q({$select: `count(*) as n,${avgs()}`})),
+      dimCol('periodo') ? soql(id, q({$select: `periodo as k,count(*) as n,${avgs()}`, $group: 'k', $order: 'k', $limit: 200})) : [],
+      dimCol('depto') ? soql(id, q({$select: `${dimCol('depto')} as k,count(*) as n,${avgs()}`, $group: 'k', $order: 'n DESC', $limit: 15})) : [],
+      ...['inst','prog'].map(key => dimCol(key) ? allGroups(id, q({$select: `${dimCol(key)} as k,count(*) as n,${avgs()}`, $group: 'k', $having: `count(*)>=${minN}`, $order: 'k'}), version) : []),
+    ]);
+    if (version !== queryVersion) return;
+    const [byPer, byDept, byInst, byProg] = [byPerRaw, byDeptRaw, byInstRaw, byProgRaw].map(withG);
+    const t = {...(tot[0] || {}), g: gOf(tot[0] || {})};
+    $('#kpis').innerHTML = [
+      ['Evaluados', fmt(t.n, 0)],
+      ['Promedio general (módulos)', fmt(t.g)],
+      ...S.mods.map(m => [prettyMod(m), fmt(t['a_' + m])]),
+    ].map(([l, v]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('');
+
+    draw('cTrend', {type: 'line', data: {labels: byPer.map(r => r.k), datasets: [{label: 'Promedio módulos', data: byPer.map(r => r.g), borderColor: '#2457d6', tension: .25}]}, options: {scales: {y: {beginAtZero: false}}}});
+    draw('cCount', {type: 'bar', data: {labels: byPer.map(r => r.k), datasets: [{label: 'Evaluados', data: byPer.map(r => +r.n), backgroundColor: '#7aa2f7'}]}});
+    draw('cMods', {type: 'bar', data: {labels: S.mods.map(prettyMod), datasets: [{label: 'Promedio', data: S.mods.map(m => +t['a_' + m]), backgroundColor: '#2a9d8f'}]}, options: {indexAxis: 'y'}});
+    draw('cDept', {type: 'bar', data: {labels: byDept.map(r => r.k), datasets: [{label: 'Promedio módulos', data: byDept.map(r => r.g), backgroundColor: '#e9a23b'}]}, options: {indexAxis: 'y'}});
+    S.rows = {inst: byInst, prog: byProg};
+    renderTable('inst', '#tInst');
+    renderTable('prog', '#tProg');
+    $('#status').textContent = Number(t.n) ? 'Actualizado ' + new Date().toLocaleTimeString('es-CO') : 'No hay evaluados para esta combinación de filtros.';
+    loadOptions(version);
+  } catch (e) {
+    if (version !== queryVersion) return;
+    $('#err').style.display = 'block';
+    $('#err').textContent = 'Error: ' + e.message;
+    $('#status').textContent = '';
+  }
+}
+
+function renderTable(key, sel) {
+  const rows = S.rows[key] || [];
+  if (!dimCol(key)) { $(sel).innerHTML = '<i>No disponible en este dataset</i>'; return; }
+  const cols = [['k', key === 'inst' ? 'Institución' : 'Programa'], ['n', 'Evaluados'], ['g', 'Promedio'], ...S.mods.map(m => ['a_' + m, prettyMod(m)])];
+  const s = S.sort[key] || {c: 'g', d: -1};
+  const data = [...rows].sort((a, b) => s.c === 'k' ? s.d * String(a.k).localeCompare(b.k) : s.d * ((+a[s.c] || 0) - (+b[s.c] || 0)));
+  $(sel).innerHTML = `<table><thead><tr>${cols.map(([c, l]) => `<th data-c="${c}">${l}</th>`).join('')}</tr></thead><tbody>` +
+    data.map((r, i) => `<tr data-i="${i}">${cols.map(([c], j) => `<td>${j === 0 ? text(r.k || '(sin dato)') : fmt(r[c], c === 'n' ? 0 : 1)}</td>`).join('')}</tr>`).join('') + '</tbody></table>';
+  $(sel).querySelectorAll('th').forEach(th => th.onclick = () => {
+    const c = th.dataset.c;
+    S.sort[key] = {c, d: s.c === c ? -s.d : -1};
+    renderTable(key, sel);
+  });
+  $(sel).querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => {
+    const v = data[+tr.dataset.i].k;
+    if (v) { S.filters[key] = v; refresh(); }
+  });
+}
+
+async function switchDs(ds) {
+  const version = ++schemaVersion;
+  ++queryVersion;
+  const filters = S.ds === ds ? S.filters : {};
+  ready = false;
+  $('#filters').replaceChildren();
+  $('#coverage').textContent = 'Verificando la cobertura de esta API…';
+  $('#meta').textContent = DATASETS[ds].name;
+  $('#status').textContent = 'Consultando…';
+  $('#kpis').replaceChildren();
+  $('#tInst').replaceChildren(); $('#tProg').replaceChildren();
+  for (const chart of Object.values(charts)) chart.destroy();
+  for (const key of Object.keys(charts)) delete charts[key];
+  S.ds = ds;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.ds === ds));
+  try {
+    await loadSchema(version, filters);
+    if (version !== schemaVersion) return;
+    ready = true;
+    $('#meta').textContent = `${DATASETS[ds].name} · actualización de la fuente: ${S.updatedAt ? new Date(S.updatedAt).toLocaleDateString('es-CO') : 's/d'}`;
+    await refresh();
+  } catch (e) {
+    if (version !== schemaVersion) return;
+    $('#coverage').textContent = 'Cobertura sin verificar.';
+    $('#status').textContent = '';
+    $('#err').style.display = 'block';
+    $('#err').textContent = 'Error: ' + e.message;
+  }
+}
+
+async function poll() {
+  const version = schemaVersion;
+  try {
+    const m = await meta(DATASETS[S.ds].id);
+    if (version !== schemaVersion) return;
+    const u = m.rowsUpdatedAt ? m.rowsUpdatedAt * 1000 : null;
+    if (!ready || !u || u !== S.updatedAt || $('#err').style.display === 'block') { await switchDs(S.ds); }
+  } catch (e) { if (version === schemaVersion) $('#status').textContent = 'Sin conexión a la fuente. Se reintentará en 10 minutos.'; }
+}
+
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => switchDs(b.dataset.ds));
+$('#clear').onclick = () => { S.filters = {}; refresh(); };
+$('#refresh').onclick = () => switchDs(S.ds);
+$('#minN').onchange = refresh;
+setInterval(poll, POLL_MS);
+switchDs(location.hash === '#tyt' ? 'tyt' : 'pro');
+</script>
+</body>
+</html>

@@ -2,35 +2,39 @@ name: Deploy dashboard
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '23 10 * * *'
   workflow_dispatch:
-    inputs:
-      script: {default: check-schema}
 permissions:
   contents: read
-  actions: read
   pages: write
   id-token: write
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: {node-version: 20}
-      - run: node scripts/${{ github.event.inputs.script || 'check-schema' }}.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r scripts/requirements.txt
+      - run: node --test scripts/test-detail.mjs
+      - run: |
+          mkdir _site
+          cp index.html detalle.html _site/
+          python scripts/import_annual.py _site/annual.json
+      - uses: actions/upload-pages-artifact@v3
+        with: {path: _site}
   deploy:
-    needs: check
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.d.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - run: mkdir _site && cp index.html _site/
-      - uses: actions/upload-pages-artifact@v3
-        with: {path: _site}
       - id: d
         uses: actions/deploy-pages@v4

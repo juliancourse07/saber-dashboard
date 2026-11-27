@@ -2,256 +2,146 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard Saber Pro / Saber TyT</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resultados anuales · Saber Pro y TyT</title>
 <style>
-:root{--bg:#f4f6fa;--card:#fff;--ink:#1d2433;--mute:#667085;--pri:#2457d6;--line:#e3e7ee}
-*{box-sizing:border-box}
-body{margin:0;font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
-header{background:#14213d;color:#fff;padding:12px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
-header h1{font-size:18px;margin:0}
-header small{opacity:.75}
-.tabs button{background:transparent;color:#fff;border:1px solid #ffffff55;padding:6px 14px;border-radius:6px;cursor:pointer;margin-left:6px}
-.tabs button.on{background:var(--pri);border-color:var(--pri)}
-main{padding:16px 20px;max-width:1400px;margin:auto}
-.filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;background:var(--card);padding:12px;border-radius:10px;border:1px solid var(--line)}
-.filters label{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;display:block}
-.filters input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px}
-.bar{display:flex;gap:10px;margin:10px 0;align-items:center;flex-wrap:wrap}
-.bar button{padding:6px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
-.bar .st{color:var(--mute);font-size:12px}
-.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:12px}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
-.kpi b{display:block;font-size:24px;color:var(--pri)}
-.kpi span{color:var(--mute);font-size:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
-.card h3{margin:0 0 8px;font-size:14px}
-.card canvas{max-height:300px}
-.tbl{max-height:360px;overflow:auto}
-table{border-collapse:collapse;width:100%;font-size:12.5px}
-th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right}
-th:first-child,td:first-child{text-align:left}
-th{position:sticky;top:0;background:#fff;cursor:pointer}
-tbody tr{cursor:pointer}tbody tr:hover{background:#eef3ff}
-.err{background:#fde8e8;color:#9b1c1c;padding:10px;border-radius:8px;margin:10px 0;display:none}
-.note{color:var(--mute);font-size:12px;margin-top:8px}
+:root{font:16px/1.5 system-ui,sans-serif;color:#142d42;background:#f3f6f8;--ink:#103348;--muted:#526779;--accent:#00746e;--line:#d7e2e6}
+*{box-sizing:border-box}body{margin:0}header{color:white;background:#123448;border-bottom:5px solid #37c8ac}
+.wrap,main{max-width:1100px;margin:auto;padding:22px clamp(16px,4vw,42px)}header p{margin:5px 0;color:#e2f1f2}h1{font-size:clamp(1.65rem,4vw,2.6rem);margin:2px 0;line-height:1.2}
+.eyebrow,dt{font-size:.76rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.eyebrow{color:#8fe3d5}
+h2{font-size:1.18rem;margin:0 0 .25rem}p{margin:.45rem 0}.toolbar,.links{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button,select{font:inherit;padding:.45rem .9rem;border:1px solid #9fb5c0;background:white;color:var(--ink);border-radius:7px;cursor:pointer}
+button[aria-pressed="true"]{color:white;background:var(--ink);border-color:var(--ink)}button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #e99321;outline-offset:3px}
+.spacer{flex:1}.status,small,.desc{color:var(--muted)}.status{margin:12px 0;font-size:.86rem}.status.warn{color:#88470b}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:12px;margin:16px 0}
+.card,.kpis>div{background:white;border:1px solid var(--line);border-radius:12px;padding:clamp(14px,2.5vw,24px)}dt{color:var(--muted)}dd{margin:6px 0 0;font-size:clamp(1.4rem,3vw,2rem);font-weight:700;color:var(--ink)}
+.card{margin-bottom:14px}.chartrow{display:grid;grid-template-columns:3rem 1fr auto;align-items:center;gap:12px;margin:12px 0;font-variant-numeric:tabular-nums}
+.track{background:#edf3f5;border-radius:4px;overflow:hidden}.fill{height:16px;background:#40858c}.chartrow:last-child .fill{background:var(--accent)}
+.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-size:.86rem}
+a{color:#006562;text-underline-offset:.18em}.links{justify-content:space-between}.links a{font-weight:650}footer{font-size:.88rem;color:var(--muted)}
 </style>
 </head>
 <body>
-<header>
-  <div><h1>Resultados Saber Pro / Saber TyT</h1><small id="meta">Cargando…</small></div>
-  <div class="tabs"><button data-ds="pro" class="on">Saber Pro</button><button data-ds="tyt">Saber TyT</button></div>
-</header>
+<header><div class="wrap"><span class="eyebrow">Observatorio de resultados · Colombia</span>
+  <h1>Saber Pro y Saber TyT</h1><p>Compara los últimos cinco años publicados por el ICFES.</p></div></header>
 <main>
-  <div class="err" id="err"></div>
-  <div class="filters" id="filters"></div>
-  <div class="bar">
-    <button id="clear">Limpiar filtros</button>
-    <button id="refresh">Actualizar ahora</button>
-    <label>Mín. evaluados en rankings <input id="minN" type="number" value="30" min="1" style="width:70px"></label>
-    <span class="st" id="status"></span>
-  </div>
-  <div class="kpis" id="kpis"></div>
-  <div class="grid">
-    <div class="card"><h3>Promedio general (5 módulos) por periodo</h3><canvas id="cTrend"></canvas></div>
-    <div class="card"><h3>Promedio por módulo</h3><canvas id="cMods"></canvas></div>
-    <div class="card"><h3>Promedio general por departamento (top 15 por evaluados)</h3><canvas id="cDept"></canvas></div>
-    <div class="card"><h3>Evaluados por periodo</h3><canvas id="cCount"></canvas></div>
-    <div class="card"><h3>Ranking de instituciones <small>(clic = filtrar)</small></h3><div class="tbl" id="tInst"></div></div>
-    <div class="card"><h3>Ranking de programas <small>(clic = filtrar)</small></h3><div class="tbl" id="tProg"></div></div>
-  </div>
-  <p class="note">Fuente: datos.gov.co (ICFES) vía API Socrata, consultada en vivo. Se recalcula al abrir, al cambiar filtros y cada 10 min si el dataset fue actualizado.</p>
+  <nav class="toolbar" aria-label="Seleccionar examen">
+    <button data-exam="pro" aria-pressed="true">Saber Pro</button><button data-exam="tyt" aria-pressed="false">Saber TyT</button>
+    <span class="spacer"></span><button id="reload">Actualizar vista</button>
+  </nav>
+  <p class="status" role="status" id="status">Cargando la última publicación…</p>
+  <section id="analysis" hidden>
+    <dl class="kpis">
+      <div><dt>Examen</dt><dd id="examName"></dd></div>
+      <div><dt>Cobertura publicada</dt><dd id="coverage"></dd></div>
+      <div><dt id="latestLabel">Último resultado</dt><dd id="latest"></dd><small id="change"></small></div>
+    </dl>
+    <article class="card">
+      <div class="toolbar"><h2>Evolución anual</h2><span class="spacer"></span>
+        <label for="module">Resultado</label><select id="module"></select>
+        <label for="metric">Indicador</label><select id="metric"></select></div>
+      <p class="desc" id="description"></p><div id="bars"></div>
+    </article>
+    <article class="card"><h2>Cifras y fuentes por año</h2><p class="desc">Consulta el archivo oficial para ver el desglose completo.</p>
+      <div class="scroll"><table><thead id="head"></thead><tbody id="rows"></tbody></table></div>
+    </article>
+  </section>
+  <aside class="card"><h2>¿Necesitas cruzar filtros?</h2><p class="desc">Los microdatos de datos.gov.co permiten filtrar por institución, programa y otras variables. Su último periodo puede ser anterior al del informe anual.</p>
+    <div class="links"><a id="detail" href="detalle.html#pro">Explorar microdatos →</a><a id="source" hidden>Publicación del ICFES ↗</a></div>
+  </aside>
+  <footer>El tablero revisa a diario las publicaciones oficiales. Una actualización del sitio web del ICFES no implica que exista un nuevo año de resultados.</footer>
 </main>
 <script>
-const DOMAIN = 'https://www.datos.gov.co';
-const APP_TOKEN = ''; // opcional: token de aplicación Socrata para más cuota
-const DATASETS = {
-  pro: {id: 'u37r-hjmu', name: 'Saber Pro'},
-  tyt: {id: 'iwgf-bkfk', name: 'Saber TyT'}
-};
-const POLL_MS = 10 * 60 * 1000;
-
-// Dimensiones de filtro: etiqueta + columnas candidatas (se usa la primera que exista)
-const DIMS = [
-  {key: 'periodo', label: 'Periodo', cands: ['periodo']},
-  {key: 'inst', label: 'Institución', cands: ['inst_nombre_institucion']},
-  {key: 'prog', label: 'Programa académico', cands: ['estu_prgm_academico']},
-  {key: 'depto', label: 'Departamento (institución)', cands: ['estu_inst_departamento', 'estu_prgm_departamento', 'estu_depto_reside']},
-  {key: 'mcpio', label: 'Municipio (programa)', cands: ['estu_prgm_municipio', 'estu_inst_municipio']},
-  {key: 'caracter', label: 'Carácter académico', cands: ['inst_caracter_academico']},
-  {key: 'origen', label: 'Origen / naturaleza', cands: ['inst_origen']},
-  {key: 'metodo', label: 'Metodología', cands: ['estu_metodo_prgm']},
-  {key: 'grupo', label: 'Grupo de referencia', cands: ['gru_gruporeferencia']},
-  {key: 'nucleo', label: 'Núcleo de pregrado', cands: ['estu_nucleo_pregrado']},
-  {key: 'genero', label: 'Género', cands: ['estu_genero']},
-  {key: 'estrato', label: 'Estrato', cands: ['fami_estratovivienda']},
+const $ = id => document.getElementById(id);
+const number = new Intl.NumberFormat('es-CO', {maximumFractionDigits: 1});
+const format = value => Number.isFinite(value) ? number.format(value) : 'Sin dato';
+const names = {pro:'Saber Pro', tyt:'Saber TyT'};
+let exam = 'pro', snapshot, loading = false;
+const metrics = [
+  {key:'meanScore', label:'Puntaje promedio', description:'Promedio nacional publicado por el ICFES para el resultado seleccionado.'},
+  {key:'evaluated', label:'Evaluados', description:'Evaluados reportados en el resultado seleccionado. Los conteos de los módulos no se suman.'}
 ];
-
-let S = {ds: 'pro', cols: {}, dims: [], mods: [], updatedAt: null, filters: {}, sort: {}};
-const charts = {};
-const $ = s => document.querySelector(s);
-const esc = v => String(v).replace(/'/g, "''");
-const fmt = (v, d = 1) => v == null || isNaN(v) ? '–' : Number(v).toLocaleString('es-CO', {maximumFractionDigits: d});
-const prettyMod = c => c.replace(/^mod_/, '').replace(/_punt$/, '').replace(/_/g, ' ');
-
-async function soql(id, params) {
-  const url = `${DOMAIN}/resource/${id}.json?` + new URLSearchParams(params);
-  const r = await fetch(url, APP_TOKEN ? {headers: {'X-App-Token': APP_TOKEN}} : {});
-  if (!r.ok) throw new Error(`Socrata ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  return r.json();
+function values(y) {
+  const selected = $('module').value;
+  return selected === 'global' ? y.metrics.global ?? {} : y.metrics.modules.find(m => m.name === selected) ?? {};
 }
-async function meta(id) {
-  const r = await fetch(`${DOMAIN}/api/views/${id}.json`);
-  if (!r.ok) throw new Error('No se pudo leer metadatos ' + r.status);
-  return r.json();
+function cell(tag, text) {
+  const el = document.createElement(tag);
+  el.textContent = text;
+  return el;
 }
-const num = c => S.cols[c] === 'number' ? c : `${c}::number`;
-const where = (skip) => {
-  const w = S.dims.filter(d => d.key !== skip && S.filters[d.key]).map(d => `${d.col}='${esc(S.filters[d.key])}'`);
-  return w.length ? w.join(' AND ') : null;
-};
-const q = (extra, skip) => {
-  const w = where(skip);
-  return w ? {...extra, $where: w} : extra;
-};
-
-async function loadSchema() {
-  const ds = DATASETS[S.ds];
-  const m = await meta(ds.id);
-  S.cols = {};
-  m.columns.forEach(c => S.cols[c.fieldName] = c.dataTypeName);
-  S.updatedAt = m.rowsUpdatedAt ? m.rowsUpdatedAt * 1000 : null;
-  S.dims = DIMS.map(d => ({...d, col: d.cands.find(c => c in S.cols)})).filter(d => d.col);
-  S.mods = Object.keys(S.cols).filter(c => /^mod_.*_punt$/.test(c));
-  S.filters = {};
-  S.sort = {};
-  renderFilters();
-}
-
-function renderFilters() {
-  $('#filters').innerHTML = S.dims.map(d => `
-    <div><label>${d.label}</label>
-    <input data-k="${d.key}" list="dl-${d.key}" placeholder="Todos" autocomplete="off">
-    <datalist id="dl-${d.key}"></datalist></div>`).join('');
-  document.querySelectorAll('#filters input').forEach(i => {
-    i.addEventListener('change', () => {
-      const v = i.value.trim();
-      if (v) S.filters[i.dataset.k] = v; else delete S.filters[i.dataset.k];
-      refresh();
-    });
-  });
-}
-
-async function loadOptions() {
-  const id = DATASETS[S.ds].id;
-  await Promise.all(S.dims.map(async d => {
-    try {
-      const rows = await soql(id, q({$select: `${d.col} as v,count(*) as n`, $group: 'v', $order: d.key === 'periodo' ? 'v DESC' : 'n DESC', $limit: 1500}, d.key));
-      $(`#dl-${d.key}`).innerHTML = rows.filter(r => r.v).map(r => `<option value="${r.v.replace(/"/g, '&quot;')}">`).join('');
-    } catch (e) { /* una lista fallida no bloquea el resto */ }
+function chart() {
+  const years = snapshot.exams[exam].years.map(y => ({year:y.year,...values(y)}));
+  const metric = metrics.find(m => m.key === $('metric').value);
+  $('description').textContent = metric.description;
+  const ordered = [...years].sort((a,b) => b.year-a.year);
+  const latest = ordered[0], previous = ordered.find(y => y.year === latest.year - 1);
+  $('latestLabel').textContent = `${metric.label} · ${latest.year}`;
+  $('latest').textContent = format(latest[metric.key]);
+  const delta = previous && Number.isFinite(previous[metric.key]) && Number.isFinite(latest[metric.key])
+    ? latest[metric.key] - previous[metric.key] : null;
+  $('change').textContent = delta == null ? 'Sin comparación interanual' :
+    `${delta > 0 ? '+' : ''}${format(delta)} frente a ${previous.year}`;
+  const max = Math.max(1, ...years.map(y => y[metric.key] ?? 0));
+  $('bars').replaceChildren(...[...years].sort((a,b) => a.year-b.year).map(y => {
+    const row = document.createElement('div'), track = document.createElement('div'), fill = document.createElement('div');
+    row.className = 'chartrow'; track.className = 'track'; fill.className = 'fill';
+    fill.style.width = `${100 * (y[metric.key] ?? 0) / max}%`;
+    track.append(fill); row.append(cell('strong', y.year), track, cell('span', format(y[metric.key])));
+    return row;
   }));
-  document.querySelectorAll('#filters input').forEach(i => i.value = S.filters[i.dataset.k] || '');
 }
-
-function dimCol(key) { return (S.dims.find(d => d.key === key) || {}).col; }
-const avgs = () => S.mods.map(c => `avg(${num(c)}) as a_${c}`).join(',');
-// El dataset no trae puntaje global: se aproxima con el promedio de los módulos
-const gOf = r => {
-  const v = S.mods.map(m => parseFloat(r['a_' + m])).filter(x => !isNaN(x));
-  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
-};
-const withG = rows => rows.map(r => ({...r, g: gOf(r)}));
-
-function draw(id, cfg) {
-  if (charts[id]) charts[id].destroy();
-  charts[id] = new Chart($('#' + id), cfg);
+function render() {
+  document.querySelectorAll('[data-exam]').forEach(b => b.setAttribute('aria-pressed', b.dataset.exam === exam));
+  $('detail').href = 'detalle.html#' + exam;
+  if (!snapshot) return;
+  const series = snapshot.exams[exam], years = [...series.years].sort((a,b) => b.year-a.year);
+  const previous = $('module').value;
+  const options = [...new Set(years.flatMap(y => y.metrics.modules.map(m => m.name)))].sort();
+  if (years.some(y => y.metrics.global)) options.unshift('global');
+  $('module').replaceChildren(...options.map(v => new Option(v === 'global' ? 'Puntaje global' : v,v)));
+  if (options.includes(previous)) $('module').value = previous;
+  $('examName').textContent = names[exam]; $('coverage').textContent = `${years.at(-1).year}–${years[0].year}`;
+  $('source').href = series.source; $('source').hidden = false;
+  const header = document.createElement('tr');
+  header.append(...['Año', ...metrics.map(m => m.label), 'Fuente'].map(t => cell('th', t)));
+  $('head').replaceChildren(header);
+  $('rows').replaceChildren(...years.map(y => {
+    const tr = document.createElement('tr'), td = document.createElement('td'), link = cell('a', `Excel ${y.year}`);
+    link.href = y.url; td.append(link);
+    tr.append(cell('th', y.year), ...metrics.map(m => cell('td', format(values(y)[m.key]))), td);
+    return tr;
+  }));
+  chart(); $('analysis').hidden = false;
 }
-
-async function refresh() {
-  const id = DATASETS[S.ds].id;
-  const minN = Math.max(1, +$('#minN').value || 1);
-  $('#status').textContent = 'Consultando…';
-  $('#err').style.display = 'none';
+async function load() {
+  if (loading) return;
+  loading = true; $('reload').disabled = true;
   try {
-    const [tot, byPerRaw, byDeptRaw, byInstRaw, byProgRaw] = await Promise.all([
-      soql(id, q({$select: `count(*) as n,${avgs()}`})),
-      dimCol('periodo') ? soql(id, q({$select: `periodo as k,count(*) as n,${avgs()}`, $group: 'k', $order: 'k', $limit: 200})) : [],
-      dimCol('depto') ? soql(id, q({$select: `${dimCol('depto')} as k,count(*) as n,${avgs()}`, $group: 'k', $order: 'n DESC', $limit: 15})) : [],
-      dimCol('inst') ? soql(id, q({$select: `${dimCol('inst')} as k,count(*) as n,${avgs()}`, $group: 'k', $having: `count(*)>=${minN}`, $order: 'n DESC', $limit: 1000})) : [],
-      dimCol('prog') ? soql(id, q({$select: `${dimCol('prog')} as k,count(*) as n,${avgs()}`, $group: 'k', $having: `count(*)>=${minN}`, $order: 'n DESC', $limit: 1000})) : [],
-    ]);
-    const [byPer, byDept, byInst, byProg] = [byPerRaw, byDeptRaw, byInstRaw, byProgRaw].map(withG);
-    const t = {...(tot[0] || {}), g: gOf(tot[0] || {})};
-    $('#kpis').innerHTML = [
-      ['Evaluados', fmt(t.n, 0)],
-      ['Promedio general (módulos)', fmt(t.g)],
-      ...S.mods.map(m => [prettyMod(m), fmt(t['a_' + m])]),
-    ].map(([l, v]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('');
-
-    draw('cTrend', {type: 'line', data: {labels: byPer.map(r => r.k), datasets: [{label: 'Promedio módulos', data: byPer.map(r => +r.g), borderColor: '#2457d6', tension: .25}]}, options: {scales: {y: {beginAtZero: false}}}});
-    draw('cCount', {type: 'bar', data: {labels: byPer.map(r => r.k), datasets: [{label: 'Evaluados', data: byPer.map(r => +r.n), backgroundColor: '#7aa2f7'}]}});
-    draw('cMods', {type: 'bar', data: {labels: S.mods.map(prettyMod), datasets: [{label: 'Promedio', data: S.mods.map(m => +t['a_' + m]), backgroundColor: '#2a9d8f'}]}, options: {indexAxis: 'y'}});
-    draw('cDept', {type: 'bar', data: {labels: byDept.map(r => r.k), datasets: [{label: 'Promedio módulos', data: byDept.map(r => +r.g), backgroundColor: '#e9a23b'}]}, options: {indexAxis: 'y'}});
-    S.rows = {inst: byInst, prog: byProg};
-    renderTable('inst', '#tInst');
-    renderTable('prog', '#tProg');
-    $('#status').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO');
-    loadOptions();
-  } catch (e) {
-    $('#err').style.display = 'block';
-    $('#err').textContent = 'Error: ' + e.message;
-    $('#status').textContent = '';
-  }
+    const response = await fetch('annual.json', {cache:'no-cache'});
+    if (!response.ok) throw Error(`HTTP ${response.status}`);
+    const next = await response.json();
+    for (const k of Object.keys(names)) if (!next.exams?.[k]?.years?.length) throw Error('Serie incompleta');
+    snapshot = next; render();
+    const checked = new Date(snapshot.checkedAt);
+    const stale = Date.now() - checked > 2 * 86400000;
+    $('status').classList.toggle('warn', stale);
+    $('status').textContent = `Última verificación del ICFES: ${checked.toLocaleString('es-CO', {timeZone:'America/Bogota'})} (Colombia).` +
+      (stale ? ' No se ha confirmado una actualización reciente.' : '');
+  } catch (error) {
+    $('status').classList.add('warn');
+    $('status').textContent = `No se pudo actualizar la vista (${error.message}). ` +
+      (snapshot ? 'Se conserva la consulta anterior.' : 'Reintenta o consulta los microdatos.');
+  } finally { loading = false; $('reload').disabled = false; }
 }
-
-function renderTable(key, sel) {
-  const rows = S.rows[key] || [];
-  if (!dimCol(key)) { $(sel).innerHTML = '<i>No disponible en este dataset</i>'; return; }
-  const cols = [['k', key === 'inst' ? 'Institución' : 'Programa'], ['n', 'Evaluados'], ['g', 'Promedio'], ...S.mods.map(m => ['a_' + m, prettyMod(m)])];
-  const s = S.sort[key] || {c: 'g', d: -1};
-  const data = [...rows].sort((a, b) => s.c === 'k' ? s.d * String(a.k).localeCompare(b.k) : s.d * ((+a[s.c] || 0) - (+b[s.c] || 0)));
-  $(sel).innerHTML = `<table><thead><tr>${cols.map(([c, l]) => `<th data-c="${c}">${l}</th>`).join('')}</tr></thead><tbody>` +
-    data.map((r, i) => `<tr data-i="${i}">${cols.map(([c], j) => `<td>${j === 0 ? (r.k || '(sin dato)') : fmt(r[c], c === 'n' ? 0 : 1)}</td>`).join('')}</tr>`).join('') + '</tbody></table>';
-  $(sel).querySelectorAll('th').forEach(th => th.onclick = () => {
-    const c = th.dataset.c;
-    S.sort[key] = {c, d: s.c === c ? -s.d : -1};
-    renderTable(key, sel);
-  });
-  $(sel).querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => {
-    const v = data[+tr.dataset.i].k;
-    if (v) { S.filters[key] = v; refresh(); }
-  });
-}
-
-async function switchDs(ds) {
-  S.ds = ds;
-  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.ds === ds));
-  try {
-    await loadSchema();
-    $('#meta').textContent = `${DATASETS[ds].name} · datos al ${S.updatedAt ? new Date(S.updatedAt).toLocaleString('es-CO') : 's/d'}`;
-    await refresh();
-  } catch (e) {
-    $('#err').style.display = 'block';
-    $('#err').textContent = 'Error: ' + e.message;
-  }
-}
-
-async function poll() {
-  try {
-    const m = await meta(DATASETS[S.ds].id);
-    const u = m.rowsUpdatedAt ? m.rowsUpdatedAt * 1000 : null;
-    if (u && u !== S.updatedAt) { await switchDs(S.ds); }
-  } catch (e) { /* reintenta en el siguiente ciclo */ }
-}
-
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => switchDs(b.dataset.ds));
-$('#clear').onclick = () => { S.filters = {}; refresh(); };
-$('#refresh').onclick = () => switchDs(S.ds);
-$('#minN').onchange = refresh;
-setInterval(poll, POLL_MS);
-switchDs('pro');
+$('metric').replaceChildren(...metrics.map(m => new Option(m.label,m.key)));
+$('metric').onchange = chart;
+$('module').onchange = render;
+document.querySelectorAll('[data-exam]').forEach(b => b.onclick = () => { exam = b.dataset.exam; render(); });
+$('reload').onclick = load;
+window.addEventListener('online',load);
+setInterval(load, 10 * 60 * 1000);
+load();
 </script>
 </body>
 </html>
